@@ -1,0 +1,96 @@
+name: CI — RecargaYa
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── Job 1: Tests unitarios TDD ────────────────────────────────
+  unit-tests:
+    name: Tests unitarios (pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar tests unitarios con cobertura
+        run: |
+          pip install pytest-cov
+          pytest tests/test_recarga.py tests/test_api.py \
+            --cov=app \
+            --cov-report=term-missing \
+            --cov-fail-under=90 \
+            -v
+
+  # ─── Job 2: Tests BDD ──────────────────────────────────────────
+  bdd-tests:
+    name: Tests BDD (pytest-bdd)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar escenarios BDD
+        run: pytest features/ -v
+
+  # ─── Job 3: Prueba de carga con Locust ─────────────────────────
+  load-tests:
+    name: Prueba de carga (Locust P95 < 300ms)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Iniciar servidor FastAPI en background
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 3
+          curl -f http://localhost:8000/health || exit 1
+
+      - name: Ejecutar prueba de carga Locust
+        run: |
+          locust -f locust/locustfile.py \
+            --headless \
+            -u 30 \
+            -r 5 \
+            -t 60s \
+            --host http://127.0.0.1:8000 \
+            --html locust-report.html \
+            --csv locust-results
+
+      - name: Subir reporte de carga
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: locust-report
+          path: |
+            locust-report.html
+            locust-results_stats.csv
