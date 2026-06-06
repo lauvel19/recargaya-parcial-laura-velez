@@ -7,7 +7,7 @@ from app.recarga import calcular_recarga
 def test_monto_menor_minimo_rechazado():
     resultado = calcular_recarga(monto=999, premium=False)
     assert resultado["aceptada"] is False
-    assert "rechazada" in resultado["mensaje"].lower()
+    assert "rechazado" in resultado["mensaje"].lower()
 
 def test_monto_cero_rechazado():
     resultado = calcular_recarga(monto=0, premium=False)
