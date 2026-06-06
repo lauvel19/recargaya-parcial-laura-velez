@@ -1,4 +1,8 @@
-# features/conftest.py
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import pytest
 from pytest_bdd import given, when, then, parsers
 from app.recarga import calcular_recarga
